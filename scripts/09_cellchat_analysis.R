@@ -14,20 +14,13 @@ library(circlize) # This package provides the colorRamp2 function
 set.seed(123)
 theme_set(theme_bw(base_size = 14))
 setwd("")
-#seurat_combined <- readRDS("seurat_obj_annotated_updated.rds")
-#load everythings when new session start
-cellchat_normal <- readRDS("cellchat_Normal.rds")
-cellchat_normal <- netAnalysis_computeCentrality(cellchat_normal, slot.name = "netP")
-cellchat_csACT <- readRDS("cellchat_csACT.rds")
-cellchat_csACT <- netAnalysis_computeCentrality(cellchat_csACT, slot.name = "netP")
-object.list <- list(Normal = cellchat_normal, csACT = cellchat_csACT)
-cellchat_merged <- mergeCellChat(object.list, add.names = names(object.list))
 
 # --- 2. Data Preparation ---####
-seurat_combined<- JoinLayers(seurat_combined, assay = "RNA")
+seurat_combined <- readRDS("seurat_obj_infercnv.rds")
+seurat_combined <- JoinLayers(seurat_combined, assay = "RNA")
 # Split the Seurat object by condition to create two separate objects.
 seurat_normal <- subset(seurat_combined, subset = condition == "Normal")
-seurat_csACT <- subset(seurat_combined, subset = condition == "csACT")
+seurat_PCC <- subset(seurat_combined, subset = condition == "PCC")
 
 # --- 3. Create and Process CellChat Objects for Each Condition ---####
 # This follows the initial steps of Procedure 1 for each dataset.
@@ -58,29 +51,37 @@ cellchat_normal <- netAnalysis_computeCentrality(cellchat_normal, slot.name = "n
 # Save the processed Normal CellChat object
 saveRDS(cellchat_normal, file = "cellchat_Normal.rds")
 
-# -- For csACT (Tumour) Samples --
+# -- For PCC (Tumour) Samples --
 # Repeat the same process for the tumour condition.
-cellchat_csACT <- createCellChat(object = seurat_csACT, group.by = "simple_cell_type", assay = "RNA")
-cellchat_csACT@DB <- CellChatDB.human
-cellchat_csACT <- subsetData(cellchat_csACT)
+cellchat_PCC <- createCellChat(object = seurat_PCC, group.by = "simple_cell_type", assay = "RNA")
+cellchat_PCC@DB <- CellChatDB.human
+cellchat_PCC <- subsetData(cellchat_PCC)
 future::plan("multisession", workers = 4)
-cellchat_csACT <- identifyOverExpressedGenes(cellchat_csACT)
-cellchat_csACT <- identifyOverExpressedInteractions(cellchat_csACT)
-cellchat_csACT <- computeCommunProb(cellchat_csACT, type = "triMean")
-cellchat_csACT <- filterCommunication(cellchat_csACT, min.cells = 10)
-cellchat_csACT <- computeCommunProbPathway(cellchat_csACT)
-cellchat_csACT <- aggregateNet(cellchat_csACT)
-# Save the processed csACT CellChat object
-saveRDS(cellchat_csACT, file = "cellchat_csACT.rds")
+cellchat_PCC <- identifyOverExpressedGenes(cellchat_PCC)
+cellchat_PCC <- identifyOverExpressedInteractions(cellchat_PCC)
+cellchat_PCC <- computeCommunProb(cellchat_PCC, type = "triMean")
+cellchat_PCC <- filterCommunication(cellchat_PCC, min.cells = 10)
+cellchat_PCC <- computeCommunProbPathway(cellchat_PCC)
+cellchat_PCC <- aggregateNet(cellchat_PCC)
+# Save the processed PCC CellChat object
+saveRDS(cellchat_PCC, file = "cellchat_PCC.rds")
 
 # --- 4. Merge CellChat Objects for Comparative Analysis --- ####
 # This is the core of Procedure 2.
-object.list <- list(Normal = cellchat_normal, csACT = cellchat_csACT)
+object.list <- list(Normal = cellchat_normal, PCC = cellchat_PCC)
 cellchat_merged <- mergeCellChat(object.list, add.names = names(object.list))
 
 # Save the list of objects and the merged object
-save(object.list, file = "cellchat_object.list_Normal_vs_csACT.RData")
-save(cellchat_merged, file = "cellchat_merged_Normal_vs_csACT.RData")
+save(object.list, file = "cellchat_object.list_Normal_vs_PCC.RData")
+save(cellchat_merged, file = "cellchat_merged_Normal_vs_PCC.RData")
+
+# --- Option: Resume from saved objects (if restarting session after step 3-4) ---
+# cellchat_normal <- readRDS("cellchat_Normal.rds")
+# cellchat_normal <- netAnalysis_computeCentrality(cellchat_normal, slot.name = "netP")
+# cellchat_PCC <- readRDS("cellchat_PCC.rds")
+# cellchat_PCC <- netAnalysis_computeCentrality(cellchat_PCC, slot.name = "netP")
+# object.list <- list(Normal = cellchat_normal, PCC = cellchat_PCC)
+# cellchat_merged <- mergeCellChat(object.list, add.names = names(object.list))
 
 
 # --- 5. Visualise and Compare Signalling Changes ---####
@@ -242,7 +243,7 @@ for (i in seq_along(object.list)) {
 
 pathways.show <- c("CD6")
 netVisual_aggregate(
-  object.list[["csACT"]],
+  object.list[["PCC"]],
   signaling = pathways.show,
   layout = "circle",
   edge.width.max = 10,
@@ -329,7 +330,7 @@ for (pathway in pathways_to_plot) {
   mat1 <- tapply(mat1$x, list(mat1$source, mat1$target), sum)
   mat1[is.na(mat1)] <- 0
   
-  mat2_lr <- subsetCommunication(object.list[["csACT"]], signaling = pathway, slot.name = "net")
+  mat2_lr <- subsetCommunication(object.list[["PCC"]], signaling = pathway, slot.name = "net")
   mat2 <- aggregate(mat2_lr$prob, by = list(source = mat2_lr$source, target = mat2_lr$target), FUN = sum)
   mat2 <- tapply(mat2$x, list(mat2$source, mat2$target), sum)
   mat2[is.na(mat2)] <- 0
@@ -468,7 +469,7 @@ for (pathway in pathways_to_plot) {
 
 #Heatmap: Comparing Outgoing/Incoming Signalling Patterns
 # Combine all identified signaling pathways from both datasets
-pathway.union <- union(object.list[["Normal"]]@netP$pathways, object.list[["csACT"]]@netP$pathways)
+pathway.union <- union(object.list[["Normal"]]@netP$pathways, object.list[["PCC"]]@netP$pathways)
 
 # Generate the initial heatmap objects to extract their data 
 # We won't plot these directly; we just need them as a source for the data matrices and annotations.
@@ -479,7 +480,7 @@ ht1_source <- netAnalysis_signalingRole_heatmap(
 )
 
 ht2_source <- netAnalysis_signalingRole_heatmap(
-  object.list[["csACT"]],
+  object.list[["PCC"]],
   pattern = "outgoing",
   signaling = pathway.union
 )
@@ -525,9 +526,9 @@ draw(ht1_final + ht2_final, ht_gap = unit(0.5, "cm"))
 # --- Identify Up- and Down-regulated Signaling via a Single DE Analysis ---
 
 # 1. Define the positive dataset for comparison (the tumour condition)
-pos.dataset <- "csACT"
+pos.dataset <- "PCC"
 # Define a name for storing the differential expression results
-features.name <- "csACT.DE"
+features.name <- "PCC.DE"
 
 # 2. Perform differential expression analysis ONCE
 # This compares every cell type in 'csACT' vs 'Normal' and stores all results.
@@ -553,9 +554,9 @@ net <- netMappingDEG(
 # 4. Subset the network to get UP-regulated interactions in csACT
 # This selects interactions in the 'csACT' dataset where the ligand has a positive logFC.
 net.up <- subsetCommunication(
-  cellchat_merged, 
-  net = net, 
-  datasets = "csACT",
+  cellchat_merged,
+  net = net,
+  datasets = "PCC",
   ligand.logFC = 0.05, # Positive logFC threshold
   receptor.logFC = NULL # Can also filter by receptor if needed
 )
@@ -576,8 +577,8 @@ gene.up <- extractGeneSubsetFromPair(net.up, cellchat_merged)
 gene.down <- extractGeneSubsetFromPair(net.down, cellchat_merged)
 
 # --- Save the results to CSV files ---
-write.csv(net.up, file = "net_up_csACT.csv", row.names = FALSE)
-write.csv(net.down, file = "net_down_csACT.csv", row.names = FALSE)
+write.csv(net.up, file = "net_up_PCC.csv", row.names = FALSE)
+write.csv(net.down, file = "net_down_PCC.csv", row.names = FALSE)
 
 # Visualise up-regulated signalling in csACT
 
@@ -762,7 +763,7 @@ gene_list <- c(
 
 # 2. Read your CSV file into a data frame
 # Make sure the file is in your current working directory, or provide the full path.
-degs_fibroblast <- read.csv("/Users/phoebechan/Documents/adrenal_scRNA_seq_data/analysis/N_csACT/deg_csv/degs_Fibroblast_normal_vs_csACT_filtered.csv")
+degs_fibroblast <- read.csv("deg_csv/degs_Fibroblast_Normal_vs_PCC_filtered.csv")
 
 # 3. Check which genes from your list are in the "gene" column of the data frame
 genes_found <- gene_list[gene_list %in% degs_fibroblast$gene]
@@ -874,7 +875,7 @@ if (nrow(net.down.fibroblast) > 0) {
 target_cell_type <- "Endothelial"
 
 # 2. Load the master list of all up-regulated interactions
-net_up <- read.csv("net_up_csACT.csv")
+net_up <- read.csv("net_up_PCC.csv")
 
 # 3. Filter for interactions where the target cell type is the sender OR receiver
 interactions_filtered <- subset(net_up, source == target_cell_type | target == target_cell_type)
@@ -887,7 +888,7 @@ endothelial_gene_list <- unique(c(ligands, receptors_split))
 
 # 5. Load the corresponding DEG file for the target cell type
 # The file path is constructed dynamically using the 'target_cell_type' variable
-deg_file_path <- paste0("/Users/phoebechan/Documents/adrenal_scRNA_seq_data/analysis/N_csACT/deg_csv/degs_", target_cell_type, "_normal_vs_csACT_filtered.csv")
+deg_file_path <- paste0("deg_csv/degs_", target_cell_type, "_Normal_vs_PCC_filtered.csv")
 degs_endothelial <- read.csv(deg_file_path)
 
 # 6. Check which genes from the CellChat list are in the DEG list
@@ -1010,8 +1011,8 @@ if (!dir.exists("cell_type_bubble_plots")) {
 }
 
 # Load the master up- and down-regulated interaction lists (if not already in memory)
-net_up <- read.csv("net_up_csACT.csv")
-net_down <- read.csv("net_down_csACT.csv")
+net_up <- read.csv("net_up_PCC.csv")
+net_down <- read.csv("net_down_PCC.csv")
 
 # Access the main interaction database
 interaction_db <- CellChatDB.human$interaction
@@ -1032,7 +1033,7 @@ for (cell_type in cell_types_to_analyse) {
   cellchat_gene_list <- unique(c(ligands, receptors_split))
   
   # Construct the DEG file path dynamically
-  deg_file_path <- paste0("/Users/phoebechan/Documents/adrenal_scRNA_seq_data/analysis/N_csACT/deg_csv/degs_", cell_type, "_normal_vs_csACT_filtered.csv")
+  deg_file_path <- paste0("deg_csv/degs_", cell_type, "_Normal_vs_PCC_filtered.csv")
   
   # Load the corresponding DEG file
   degs_df <- read.csv(deg_file_path)

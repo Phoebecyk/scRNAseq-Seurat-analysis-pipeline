@@ -9,9 +9,10 @@ library(ggpubr)
 set.seed(123)
 theme_set(theme_bw(base_size = 14))
 
-# Set working directory and load your Seurat object
+# Set working directory and load annotated object from step 04
+dir.create("cnv", showWarnings = FALSE)
 setwd("cnv")
-seurat_combined <- readRDS("/steroidogenic_cells.rds")
+seurat_combined <- readRDS("../seurat_obj_annotated.rds")
 
 
 # if plot not show, close all graphics devices
@@ -247,9 +248,7 @@ plot_cells(cds,
            label_cell_groups = FALSE)
 
 #endo_as_ref####
-# Set working directory and load your Seurat object
-setwd("/Users/phoebechan/Documents/adrenal_scRNA_seq_data/analysis/N_csACT/steroidogenic_cells/cnv")
-seurat_combined <- readRDS("/Users/phoebechan/Documents/adrenal_scRNA_seq_data/analysis/N_csACT/seurat_obj_annotated_updated.rds")
+seurat_combined <- readRDS("../seurat_obj_annotated.rds")
 
 # 1. Ensure the correct identities are active
 Idents(seurat_combined) <- "simple_cell_type"
@@ -257,7 +256,7 @@ Idents(seurat_combined) <- "simple_cell_type"
 # 2. Get the cell barcodes for each group
 ref_cells <- WhichCells(seurat_combined, idents = "Endothelial", expression = condition == "Normal")
 normal_steroid_cells <- WhichCells(seurat_combined, idents = c("Dedifferentiated_Steroidogenic", "Steroidogenic"), expression = condition == "Normal")
-tumour_steroid_cells <- WhichCells(seurat_combined, idents = c("Dedifferentiated_Steroidogenic", "Steroidogenic"), expression = condition == "csACT") # Assuming 'csACT' is your tumour condition
+tumour_steroid_cells <- WhichCells(seurat_combined, idents = c("Dedifferentiated_Steroidogenic", "Steroidogenic"), expression = condition == "PCC")
 
 # 3. Combine all cells for the analysis
 analysis_cells <- c(ref_cells, normal_steroid_cells, tumour_steroid_cells)
@@ -375,7 +374,7 @@ cnv_threshold <- 15
 
 # Create the new classification column directly in the object's metadata
 seurat_combined$final_class <- case_when(
-  seurat_combined$simple_cell_type %in% c("Steroidogenic", "Dedifferentiated_Steroidogenic") & seurat_combined$condition == "csACT" & seurat_combined$cnv_score > cnv_threshold ~ "Malignant",
+  seurat_combined$simple_cell_type %in% c("Steroidogenic", "Dedifferentiated_Steroidogenic") & seurat_combined$condition == "PCC" & seurat_combined$cnv_score > cnv_threshold ~ "Malignant",
   seurat_combined$simple_cell_type %in% c("Steroidogenic", "Dedifferentiated_Steroidogenic") & seurat_combined$condition == "Normal" & seurat_combined$cnv_score > cnv_threshold ~ "Pre-Malignant",
   seurat_combined$simple_cell_type %in% c("Steroidogenic", "Dedifferentiated_Steroidogenic") & seurat_combined$cnv_score <= cnv_threshold ~ "Diploid Steroidogenic",
   !seurat_combined$simple_cell_type %in% c("Steroidogenic", "Dedifferentiated_Steroidogenic") ~ "Diploid Stroma",
@@ -448,3 +447,6 @@ infercnv_obj <- infercnv::run(
   noise_filter = 0.1,
   HMM = FALSE
 )
+
+# Save seurat_combined with CNV annotations for downstream steps
+saveRDS(seurat_combined, file = "../seurat_obj_infercnv.rds")

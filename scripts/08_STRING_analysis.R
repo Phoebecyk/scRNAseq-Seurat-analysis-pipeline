@@ -6,9 +6,7 @@ library(STRINGdb)
 library(igraph)
 
 # 2. Load Your DEG List
-# Ensure the file path is correct
-setwd("/Users/phoebechan/Documents/adrenal_scRNA_seq_data/analysis/humanfetalN_PCC/STRING/neurochromaffin")
-degs_df <- read_csv("/Users/phoebechan/Documents/adrenal_scRNA_seq_data/analysis/humanfetalN_PCC/deg_csv/no_1_0_degs_Neurosecretory_Chromaffin_Normal_vs_PCC.csv")
+degs_df <- read_csv("deg_csv/no_1_0_degs_Neurosecretory_Chromaffin_Normal_vs_PCC.csv")
 # Assuming your gene symbols are in a column named "gene"
 degs_list <- degs_df$gene
 
@@ -47,7 +45,7 @@ find_outliers <- function(scores) {
   return(threshold)
 }
 
-Calculate thresholds
+# Calculate thresholds
 bc_threshold <- find_outliers(centrality_df$bc_score)
 cc_threshold <- find_outliers(centrality_df$cc_score)
 
@@ -64,8 +62,8 @@ write.csv(hub_genes, "identified_hub_genes_Neurosecretory_Chromaffin.csv", row.n
 # Save the full list of centrality scores to a CSV file
 write.csv(centrality_df, "all_centrality_scores_Neurosecretory_Chromaffin.csv", row.names = FALSE)
 
-Rank-Based Composite Score
-1. Normalise scores using the 'centrality_df' object
+# Rank-Based Composite Score
+# 1. Normalise scores using the 'centrality_df' object
 # Min-Max normalisation scales the data to a [0, 1] range
 centrality_df$bc_norm <- (centrality_df$bc_score - min(centrality_df$bc_score)) / (max(centrality_df$bc_score) - min(centrality_df$bc_score))
 centrality_df$cc_norm <- (centrality_df$cc_score - min(centrality_df$cc_score)) / (max(centrality_df$cc_score) - min(centrality_df$cc_score))

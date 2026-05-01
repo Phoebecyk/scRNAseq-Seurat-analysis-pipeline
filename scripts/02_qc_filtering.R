@@ -7,7 +7,7 @@ seurat_list <- lapply(seurat_list, function(obj) {
   # 1. Determine the correct mitochondrial gene pattern based on the condition
   mito_pattern <- if (obj$condition[1] == "Normal") {
     human_mito_pattern
-  } else if (obj$condition[1] == "Canine_PCC") {
+  } else if (obj$condition[1] == "PCC") {
     "^MT-" # Canine pattern
   } else {
     "^MT-" # Default fallback

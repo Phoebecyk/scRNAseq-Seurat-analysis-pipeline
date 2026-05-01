@@ -341,7 +341,7 @@ ggplot(df, aes(x = cluster, y = monocle3_pseudotime, fill = condition)) +
 #NES as root, PCA####
 # ---- Monocle3 Trajectory Analysis Pipeline (Revised) ---- #
 
-setwd("/Users/phoebechan/Documents/adrenal_scRNA_seq_data/analysis/N_csACT/steroidogenic_cells/Trajectory/NES/PCA")
+setwd("Trajectory/NES/PCA")
 
 library(monocle3)
 library(SeuratWrappers)
@@ -626,7 +626,7 @@ condition_vec <- seurat_combined$condition[names(pseudotime_values)]
 # Create a data frame for sorting
 ordering_df <- data.frame(
   pseudotime = pseudotime_values,
-  condition = factor(condition_vec, levels = c("Normal", "csACT"))  # Ensures Normal comes first
+  condition = factor(condition_vec, levels = c("Normal", "PCC"))  # Ensures Normal comes first
 )
 
 # Sort by condition first, then pseudotime
@@ -675,7 +675,7 @@ plot_cells(cds,
 #NES as root, UMAP####
 # ---- Monocle3 Trajectory Analysis Pipeline (Revised) ---- #
 
-setwd("/Users/phoebechan/Documents/adrenal_scRNA_seq_data/analysis/N_csACT/steroidogenic_cells/Trajectory/NES/UMAP")
+setwd("Trajectory/NES/UMAP")
 
 # 1. Convert Seurat object to Monocle3's cell_data_set object
 # Get the count matrix
@@ -954,7 +954,7 @@ my_colour_palette <- colorRampPalette(rev(brewer.pal(n = 7, name = "RdBu")))(100
 ann_colors <- list(
   simple_cell_type = c(
     "Normal" = "salmon",
-    "csACT" = "lightblue"
+    "PCC" = "lightblue"
   )
 )
 pheatmap(
@@ -984,7 +984,7 @@ condition_vec <- seurat_combined$condition[names(pseudotime_values)]
 # Create a data frame for sorting
 ordering_df <- data.frame(
   pseudotime = pseudotime_values,
-  condition = factor(condition_vec, levels = c("Normal", "csACT"))  # Ensures Normal comes first
+  condition = factor(condition_vec, levels = c("Normal", "PCC"))  # Ensures Normal comes first
 )
 
 # Sort by condition first, then pseudotime
@@ -1022,7 +1022,7 @@ pheatmap(
 
 #LIPA####
 
-setwd("/Users/phoebechan/Documents/adrenal_scRNA_seq_data/analysis/N_csACT/steroidogenic_cells/Trajectory/LIPA")
+setwd("Trajectory/LIPA")
 
 # 1. Convert Seurat object to Monocle3's cell_data_set object
 # Get the count matrix
@@ -1290,7 +1290,7 @@ my_colour_palette <- colorRampPalette(rev(brewer.pal(n = 7, name = "RdBu")))(100
 ann_colors <- list(
   simple_cell_type = c(
     "Normal" = "salmon",
-    "csACT" = "lightblue"
+    "PCC" = "lightblue"
   )
 )
 pheatmap(
@@ -1320,7 +1320,7 @@ condition_vec <- seurat_combined$condition[names(pseudotime_values)]
 # Create a data frame for sorting
 ordering_df <- data.frame(
   pseudotime = pseudotime_values,
-  condition = factor(condition_vec, levels = c("Normal", "csACT"))  # Ensures Normal comes first
+  condition = factor(condition_vec, levels = c("Normal", "PCC"))  # Ensures Normal comes first
 )
 
 # Sort by condition first, then pseudotime
@@ -1356,8 +1356,8 @@ pheatmap(
 
 #Slingshot####
 #Trajectory Analysis (Monocle3)#####
-setwd("/Users/phoebechan/Documents/adrenal_scRNA_seq_data/analysis/N_csACT/steroidogenic_cells/Trajectory/slingshot")
-seurat_combined <- readRDS("/Users/phoebechan/Documents/adrenal_scRNA_seq_data/analysis/N_csACT/steroidogenic_cells/steroidogenic_subset_processed.rds")
+setwd("Trajectory/slingshot")
+seurat_combined <- readRDS("steroidogenic_subset_processed.rds")
 # Required packages
 library(slingshot)
 library(SingleCellExperiment)
@@ -1439,7 +1439,7 @@ plot(reducedDim(sce_dm, "DM")[,1], reducedDim(sce_dm, "DM")[,2],
      xlab = "DC1", ylab = "DC2", main = "Slingshot on Diffusion Map")
 lines(SlingshotDataSet(sce_dm), lwd = 2, col = 'black')
 
-# Compare pseudotime distributions between Normal and csACT
+# Compare pseudotime distributions between Normal and PCC
 library(ggpubr)
 df_pt <- data.frame(cell = colnames(sce),
                     pt1 = pt_pca[,1],
@@ -1492,4 +1492,4 @@ ggplot(meta, aes(x = cell_type, y = slingshot_pt_lineage1, fill = condition)) +
     x = "Cell Type",
     y = "Pseudotime (lineage 1)"
   ) +
-  scale_fill_manual(values = c("Normal" = "skyblue", "csACT" = "salmon"))
+  scale_fill_manual(values = c("Normal" = "skyblue", "PCC" = "salmon"))
