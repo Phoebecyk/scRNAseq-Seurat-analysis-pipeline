@@ -97,7 +97,7 @@ plot_list <- lapply(names(seurat_list), function(sample) {
     ggplot2::theme(plot.title = ggplot2::element_text(size = 10))
   
   # Combine the two plots for this sample into one row (requires 'patchwork')
-  combined_plot <- p1 + p3 + patchwork::plot_layout(ncol = 4) # Changed ncol to 2
+  combined_plot <- p1 + p3 + patchwork::plot_layout(ncol = 4)
   
   return(combined_plot)
 })
@@ -210,4 +210,3 @@ seurat_list <- lapply(seurat_list, function(obj) {
   # Return the (potentially modified) object
   return(obj)
 })
-names(seurat_list) <- names(seurat_list)  # Preserve sample names

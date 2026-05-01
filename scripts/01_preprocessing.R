@@ -10,7 +10,6 @@ library(ggplot2)
 library(cowplot)
 library(clusterProfiler)
 library(org.Cf.eg.db)  # Canis familiaris (dog) organism database
-library(ggplot2)
 library(enrichplot)
 library(dplyr)
 library(msigdbr)
@@ -19,7 +18,6 @@ library(RColorBrewer)
 library(ggrepel)
 library(tidyr)
 library(tibble)
-library(RColorBrewer)
 library(DOSE)
 library(data.table)
 library(org.Hs.eg.db)
@@ -133,10 +131,11 @@ names(canine_seurat_list) <- names(canine_sample_paths)
 seurat_list <- c(canine_seurat_list, list(f106 = f106_seurat, f107 = f107_seurat))
 
 # --- Add Metadata (sample and condition) to all objects ---
-seurat_list <- lapply(names(seurat_list), function(sample_name) {
+sample_names <- names(seurat_list)
+seurat_list <- lapply(sample_names, function(sample_name) {
   obj <- seurat_list[[sample_name]]
   obj$sample <- sample_name
-  
+
   # Assign condition based on sample name
   obj$condition <- case_when(
     sample_name %in% c("f106", "f107") ~ "Normal",
@@ -145,4 +144,4 @@ seurat_list <- lapply(names(seurat_list), function(sample_name) {
   )
   return(obj)
 })
-names(seurat_list) <- names(c(canine_sample_paths, list(f106 = "f106", f107 = "f107")))
+names(seurat_list) <- sample_names
