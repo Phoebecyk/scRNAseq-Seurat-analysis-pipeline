@@ -1,16 +1,18 @@
-# Define the list of human mitochondrial gene symbols (kept outside the loop for clarity, though it works inside)
-human_mito_genes <- c("ND1", "ND2", "ND3", "ND4", "ND4L", "ND5", "ND6", "CYTB", "COX1", "COX2", "COX3", "ATP6", "ATP8")
+source(here::here("scripts/config.R"))
+
+# Human fetal reference samples use individual mito gene names (not MT- prefix)
+human_mito_genes   <- c("ND1", "ND2", "ND3", "ND4", "ND4L", "ND5", "ND6",
+                         "CYTB", "COX1", "COX2", "COX3", "ATP6", "ATP8")
 human_mito_pattern <- paste0("^", human_mito_genes, "$", collapse = "|")
 
 seurat_list <- lapply(seurat_list, function(obj) {
-  
-  # 1. Determine the correct mitochondrial gene pattern based on the condition
-  mito_pattern <- if (obj$condition[1] == "Normal") {
+
+  # Human fetal samples (f106, f107) need the explicit gene-name pattern;
+  # all canine samples use the standard MT- prefix.
+  mito_pattern <- if (obj$sample[1] %in% c("f106", "f107")) {
     human_mito_pattern
-  } else if (obj$condition[1] == "PCC") {
-    "^MT-" # Canine pattern
   } else {
-    "^MT-" # Default fallback
+    "^MT-"
   }
   
   # 2. Find mitochondrial genes using the correct pattern for this object
@@ -153,15 +155,16 @@ ggsave(filename = "qc_plots_combined.png",
        units = "in",
        limitsize = FALSE)
 
-# After reviewing the saved plot, adjust thresholds here and filter
+# After reviewing the saved plot, adjust thresholds in config.R then re-run
 seurat_list <- lapply(seurat_list, function(obj) {
-  # Initial suggested thresholds (adjust based on plot review)
-  cells_to_filter <- rownames(subset(obj, subset = nFeature_RNA > 500 & 
-                                       nFeature_RNA < 6000 & 
-                                       percent.mt < 10)@meta.data)
-  obj$keep <- rownames(obj@meta.data) %in% cells_to_filter
-  obj <- subset(obj, subset = keep)
-  return(obj)
+  cells_to_keep <- rownames(subset(
+    obj,
+    subset = nFeature_RNA > MIN_FEATURES &
+             nFeature_RNA < MAX_FEATURES &
+             percent.mt  < MAX_PERCENT_MT
+  )@meta.data)
+  obj$keep <- rownames(obj@meta.data) %in% cells_to_keep
+  subset(obj, subset = keep)
 })
 rm(all_plots,plot_list)
 ##Check cell counts and variable features for each sample
@@ -175,35 +178,22 @@ sample_summary <- lapply(names(seurat_list), function(sample) {
 })
 sample_summary <- do.call(rbind, sample_summary)
 
-# Remove samples with low cell counts if any (e.g., <100 cells) ####
-min_cells <- 100
-seurat_list <- seurat_list[sapply(seurat_list, ncol) >= min_cells]
+# Remove samples below minimum cell count (MIN_CELLS_PER_SAMPLE from config.R)
+seurat_list <- seurat_list[sapply(seurat_list, ncol) >= MIN_CELLS_PER_SAMPLE]
 
-# Define the maximum number of cells for downsampling
-max_cells_per_sample <- 2000
-
-cat("Downsampling all samples to a maximum of", max_cells_per_sample, "cells...\n")
+cat("Downsampling all samples to a maximum of", MAX_CELLS_PER_SAMPLE, "cells...\n")
 
 # Use lapply to iterate through the list of Seurat objects
 # This version iterates directly over the objects, which is slightly cleaner
 seurat_list <- lapply(seurat_list, function(obj) {
   
   # Check if the current object has more cells than the maximum allowed
-  if (ncol(obj) > max_cells_per_sample) {
-    # Set a seed for reproducible random sampling
-    set.seed(42)
-    
-    # Randomly sample the cell barcodes to keep
-    cells_to_keep <- sample(colnames(obj), size = max_cells_per_sample)
-    
-    # Subset the object to keep only the sampled cells
+  if (ncol(obj) > MAX_CELLS_PER_SAMPLE) {
+    set.seed(SEED)
+    cells_to_keep <- sample(colnames(obj), size = MAX_CELLS_PER_SAMPLE)
     obj <- subset(obj, cells = cells_to_keep)
-    
-    # Print a confirmation message using the project name from the object
     cat(sprintf(" - %s downsampled to %d cells\n", obj@project.name, ncol(obj)))
-    
   } else {
-    # If the object is already at or below the threshold, do nothing
     cat(sprintf(" - %s kept with %d cells\n", obj@project.name, ncol(obj)))
   }
   

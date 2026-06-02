@@ -22,6 +22,7 @@ data/
 # Outputs (regeneratable)
 results/
 output_tables/
+PPT_organised_data/
 
 # macOS
 .DS_Store

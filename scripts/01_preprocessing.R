@@ -1,4 +1,5 @@
 # Load required libraries ####
+source(here::here("scripts/config.R"))
 library(Seurat)
 library(sctransform)
 library(tidyverse)
@@ -130,18 +131,14 @@ names(canine_seurat_list) <- names(canine_sample_paths)
 # --- 2. Combine all samples into a single list ---
 seurat_list <- c(canine_seurat_list, list(f106 = f106_seurat, f107 = f107_seurat))
 
-# --- Add Metadata (sample and condition) to all objects ---
+# --- Add metadata (sample and condition) to all objects ---
+# Condition labels come from CFG$sample_conditions in config.R.
+# To add or rename samples, update the sample_conditions map there.
 sample_names <- names(seurat_list)
-seurat_list <- lapply(sample_names, function(sample_name) {
-  obj <- seurat_list[[sample_name]]
-  obj$sample <- sample_name
-
-  # Assign condition based on sample name
-  obj$condition <- case_when(
-    sample_name %in% c("f106", "f107") ~ "Normal",
-    sample_name %in% c("PCCVanDijk", "PCCDakota", "PCCRose") ~ "PCC",
-    TRUE ~ "Unknown"
-  )
+seurat_list  <- lapply(sample_names, function(sample_name) {
+  obj            <- seurat_list[[sample_name]]
+  obj$sample     <- sample_name
+  obj$condition  <- CFG$sample_conditions[sample_name]
   return(obj)
 })
 names(seurat_list) <- sample_names

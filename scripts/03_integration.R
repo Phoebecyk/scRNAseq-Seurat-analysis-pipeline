@@ -1,8 +1,12 @@
+source(here::here("scripts/config.R"))
+
 # Normalise and scale and combine #####
 
 # Normalize and find variable features for each sample
 seurat_list <- lapply(seurat_list, function(obj) {
-  obj <- NormalizeData(obj) %>% FindVariableFeatures(selection.method = "vst")
+  obj <- NormalizeData(obj) %>%
+    FindVariableFeatures(selection.method = "vst",
+                         nfeatures = N_VARIABLE_FEATURES)
   return(obj)
 })
 

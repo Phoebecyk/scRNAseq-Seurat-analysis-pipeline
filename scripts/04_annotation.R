@@ -1,116 +1,103 @@
-#Cluster marker genes###########################
-# Marker identification for clusters
-DefaultAssay(seurat_combined)
-seurat_combined <- PrepSCTFindMarkers(seurat_combined)
+source(here::here("scripts/config.R"))
+
+# ── Cluster marker genes ───────────────────────────────────────────────────────
 DefaultAssay(seurat_combined) <- "SCT"
-#Exploration / clustering / plotting UMAP → "integrated"
-#DE & biological interpretation → "SCT"
-all_markers <- FindAllMarkers(seurat_combined, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+seurat_combined <- PrepSCTFindMarkers(seurat_combined)
 
-write.csv(all_markers, file = "all_markers_per_cluster_de.csv")
+all_markers <- FindAllMarkers(
+  seurat_combined,
+  only.pos          = TRUE,
+  min.pct           = DEG_MIN_PCT,
+  logfc.threshold   = DEG_LOGFC_THRESHOLD
+)
+write.csv(all_markers, file = file.path(OUTPUT_TABLES_DIR, "all_markers_per_cluster.csv"))
 
-
-# Top markers heatmap
+# Top 10 markers per cluster for heatmap
 top10 <- all_markers %>%
   group_by(cluster) %>%
   dplyr::filter(avg_log2FC > 1) %>%
   slice_head(n = 10) %>%
   ungroup()
+write.csv(top10, file = file.path(OUTPUT_TABLES_DIR, "top10_markers_per_cluster.csv"))
 
-write.csv(top10, file = "top_10_marker_per_cluster.csv")
-
-# Scale only the top marker genes
 seurat_combined <- ScaleData(seurat_combined, features = top10$gene, assay = "SCT")
-topclustermarker <-DoHeatmap(seurat_combined, features = top10$gene) + NoLegend()
-ggsave("top_cluster_marker.png", topclustermarker, width = 10, height = 15, dpi = 300)
-
-# Identifying cell types ###########
-DefaultAssay(seurat_combined) <- "SCT"
-
-cell_types <- list(
-  "Endothelial Cells" = c("PECAM1", "FLT1", "KDR", "EMCN"),
-  "Neurosecretory-like Cells" = c("SYT1", "EPHA5", "DAB1", "RORB"), 
-  "Chromaffin Cells" = c("TH", "DBH", "ENSCAFG00000024864"),
-  "Smooth Muscle Cells" = c("ACTA2", "TAGLN", "TPM2", "PRKG1"),
-  "Fibroblasts" = c("COL1A2", "DCN", "MFAP5", "SERPINF1"),
-  "Schwann cells" = c("MPZ","CDH19","PTPRZ1"),
-  "Steroidogenic Cells" = c("STAR", "CYP11A1", "FGFR2", "RBP4"),
-  "Immune Cells (APC/Lymphoid Mixed)" = c("PTPRC", "CD86", "IKZF1", "DLA-DQA1"),
-  "Perivascular Cells" = c("BMPER", "EDN1", "AQP1", "GJA5"),
-  "Mature Medullary Neurons" = c("CNTN3", "CDH4", "IGDCC4", "AFf106"),
-  "T Cells" = c("CD3E", "ITK", "SKAP1", "BCL11B")
+p_heatmap <- DoHeatmap(seurat_combined, features = top10$gene) + NoLegend()
+ggsave(
+  file.path(RESULTS_DIR, "top_cluster_marker_heatmap.png"),
+  p_heatmap, width = 10, height = 15, dpi = 300
 )
 
-CHGA <- c(
-  "ENSCAFG00000024864" = "CHGA")
+# ── Cell type marker dot plot ──────────────────────────────────────────────────
+# marker_panel and ENSEMBL_ALIASES come from config.R — edit them there.
+marker_panel <- CFG$marker_panel
 
-# Generate a bubble plot using Seurat's built-in function
-bubble_annotation <- DotPlot(seurat_combined, features = cell_types, group.by = "seurat_clusters",dot.scale = 6) +
-  scale_x_discrete(labels = CHGA) +  # Apply custom labels
+p_dot <- DotPlot(
+  seurat_combined,
+  features   = marker_panel,
+  group.by   = "seurat_clusters",
+  dot.scale  = 6
+) +
+  scale_x_discrete(labels = ENSEMBL_ALIASES) +
+  scale_color_gradientn(
+    colors = c("#4169E1", "#abd9e9", "#abd9e9", "#fee090", "#fee090", "#CD2626"),
+    name   = "Expression Level"
+  ) +
   theme_minimal() +
-  ggtitle("Bubble Plot of Gene Expression Across Cluster")+
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
-        plot.margin = unit(c(0, 0, 0, 2), "cm")  # Top, right, bottom, left      
-  )+
-  # Add custom gradient with all six colors
-  scale_color_gradientn(colors = c("#4169E1", "#abd9e9", "#abd9e9", "#fee090", "#fee090", "#CD2626"),
-                        name = "Expression Level")
+  theme(
+    axis.text.x  = element_text(angle = 45, hjust = 1, size = 10),
+    plot.margin  = unit(c(0, 0, 0, 2), "cm")
+  ) +
+  ggtitle(paste("Cluster marker expression —", DATASET))
 
-print(bubble_annotation)
-ggsave("bubble_annotation_cell_types_per_cluster.png", bubble_annotation, width = 20, height = 5, dpi = 300, limitsize = FALSE)
+ggsave(
+  file.path(RESULTS_DIR, "dotplot_cluster_markers.png"),
+  p_dot, width = 20, height = 5, dpi = 300, limitsize = FALSE
+)
 
-# Cell type annotation############
-# Set the cluster identities
+# ── Cell type annotation ───────────────────────────────────────────────────────
+# CELL_TYPE_MAP comes from config.R: named vector of cluster → cell type label.
+# To reannotate: update the map in config.R and re-run from this point.
 Idents(seurat_combined) <- seurat_combined$seurat_clusters
 
-descriptive_names <- c(
-  "1"  = "Neurosecretory Chromaffin",
-  "2"  = "Endothelial",
-  "3"  = "Proliferating cells",
-  "4"  = "Steroidogenic",
-  "5"  = "Chromaffin",
-  "6"  = "Fibroblasts",
-  "7"  = "Pericytes",
-  "8"  = "Macrophages",
-  "9"  = "T cells",
-  "10" = "Fetal progenitors",
-  "11" = "Fetal sympathoblasts"
-)
-
-# Simplified names for convenience
-simplified_names <- c(
-  "1"  = "Neurosecretory_Chromaffin",
-  "2"  = "Endothelial",
-  "3"  = "Proliferating",
-  "4"  = "Steroidogenic",
-  "5"  = "Chromaffin",
-  "6"  = "Fibroblasts",
-  "7"  = "Pericytes",
-  "8"  = "Macrophages",
-  "9"  = "T",
-  "10" = "Fetal_progenitor",
-  "11" = "Fetal_sympathoblasts"
-)
-
-# Rename for plotting (descriptive)
-seurat_combined <- RenameIdents(seurat_combined, descriptive_names)
-
-# Save descriptive names to metadata
+seurat_combined <- RenameIdents(seurat_combined, CELL_TYPE_MAP)
 seurat_combined$cell_type <- Idents(seurat_combined)
 
-# Save simplified names to metadata
-seurat_combined$simple_cell_type <- plyr::mapvalues(
-  x = as.character(seurat_combined$seurat_clusters),
-  from = names(simplified_names),
-  to = simplified_names
+# simple_cell_type uses the same labels — kept as a separate column so
+# downstream scripts can reference it without depending on the active ident
+seurat_combined$simple_cell_type <- as.character(seurat_combined$cell_type)
+
+# Flag tumour cells (defined in config.R) for easy subsetting downstream
+seurat_combined$is_tumour_cell <- seurat_combined$simple_cell_type %in% TUMOUR_CELLS
+
+# ── Annotated UMAP ────────────────────────────────────────────────────────────
+p_umap <- DimPlot(
+  seurat_combined,
+  reduction  = "umap",
+  label      = TRUE,
+  repel      = TRUE,
+  label.size = 4.5
+) +
+  ggtitle(paste("Cell type annotation —", DATASET))
+
+ggsave(
+  file.path(RESULTS_DIR, "umap_annotated.png"),
+  p_umap, width = 12, height = 8, dpi = 300
 )
 
-# Plot the UMAP with descriptive names
-umap_annotation <- DimPlot(seurat_combined, reduction = "umap", label = TRUE, repel = TRUE, label.size = 4.5 ) + 
-  ggtitle("UMAP with Cell Type Annotations")
+# UMAP split by condition for visual QC
+p_umap_split <- DimPlot(
+  seurat_combined,
+  reduction = "umap",
+  split.by  = "condition",
+  label     = TRUE,
+  repel     = TRUE,
+  label.size = 3
+) +
+  ggtitle(paste(COND1, "vs", COND2, "—", DATASET))
 
-ggsave(filename = "umap_annotation_update.png", plot = umap_annotation,
-       width = 12, height = 8, dpi = 300, units = "in")
+ggsave(
+  file.path(RESULTS_DIR, "umap_annotated_split_condition.png"),
+  p_umap_split, width = 14, height = 6, dpi = 300
+)
 
-# Optional: Save the Seurat object with both annotations
-saveRDS(seurat_combined, file = "seurat_obj_annotated.rds")
+saveRDS(seurat_combined, file = file.path(RESULTS_DIR, "seurat_obj_annotated.rds"))

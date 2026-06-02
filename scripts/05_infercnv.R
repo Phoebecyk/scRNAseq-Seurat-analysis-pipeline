@@ -5,14 +5,14 @@ library(tidyverse)
 library(biomaRt)
 library(ggplot2)
 library(ggpubr)
+source(here::here("scripts/config.R"))
 
-set.seed(123)
+set.seed(SEED)
 theme_set(theme_bw(base_size = 14))
 
-# Set working directory and load annotated object from step 04
-dir.create("cnv", showWarnings = FALSE)
-setwd("cnv")
-seurat_combined <- readRDS("../seurat_obj_annotated.rds")
+cnv_dir <- file.path(RESULTS_DIR, "cnv")
+dir.create(cnv_dir, showWarnings = FALSE, recursive = TRUE)
+seurat_combined <- readRDS(file.path(RESULTS_DIR, "seurat_obj_annotated.rds"))
 
 
 # if plot not show, close all graphics devices
@@ -37,16 +37,15 @@ write.table(annotations, file = "infercnv_annotations_steroidogenic.txt", sep = 
 # 4. Create InferCNV Object
 infercnv_obj <- CreateInfercnvObject(
   raw_counts_matrix = counts_matrix,
-  annotations_file = "infercnv_annotations_steroidogenic.txt",
-  gene_order_file = "filtered_gene_order.pos",
-  ref_group_names = c("NAD2016","NAD2017")
+  annotations_file  = file.path(cnv_dir, "infercnv_annotations.txt"),
+  gene_order_file   = here("data", "filtered_gene_order.pos"),
+  ref_group_names   = CFG$infercnv_ref_groups
 )
 
-# 5. Run InferCNV
 infercnv_obj <- infercnv::run(
   infercnv_obj,
-  cutoff = 0.1, # 10x Genomics data
-  out_dir = "infercnv_output",
+  cutoff  = INFERCNV_CUTOFF,
+  out_dir = file.path(cnv_dir, "infercnv_output"),
   cluster_by_groups = TRUE,
   denoise = TRUE,
   noise_filter = 0.1,

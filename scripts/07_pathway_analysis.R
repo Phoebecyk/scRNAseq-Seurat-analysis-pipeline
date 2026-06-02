@@ -1,15 +1,24 @@
+source(here::here("scripts/config.R"))
+
 # Load DEG lists from 06 if not already in memory
 if (!exists("degs_per_cluster")) {
-  degs_per_cluster <- readRDS("degs_per_cluster.rds")
+  degs_per_cluster <- readRDS(file.path(RESULTS_DIR, "degs_per_cluster.rds"))
 }
 if (!exists("filtered_degs_per_cluster")) {
-  filtered_degs_per_cluster <- readRDS("filtered_degs_per_cluster.rds")
+  filtered_degs_per_cluster <- readRDS(
+    file.path(RESULTS_DIR, "filtered_degs_per_cluster.rds")
+  )
 }
 
-#KEGG
-# Output directory
-dir.create("kegg_csv", showWarnings = FALSE)
-dir.create("kegg_dotplot", showWarnings = FALSE)
+kegg_dir          <- file.path(OUTPUT_TABLES_DIR, "kegg_csv")
+kegg_plot_dir     <- file.path(RESULTS_DIR,       "kegg_dotplot")
+kegg_filt_dir     <- file.path(OUTPUT_TABLES_DIR, "kegg_csv_filtered")
+kegg_filt_plot_dir <- file.path(RESULTS_DIR,      "kegg_dotplot_filtered")
+
+dir.create(kegg_dir,           showWarnings = FALSE, recursive = TRUE)
+dir.create(kegg_plot_dir,      showWarnings = FALSE, recursive = TRUE)
+dir.create(kegg_filt_dir,      showWarnings = FALSE, recursive = TRUE)
+dir.create(kegg_filt_plot_dir, showWarnings = FALSE, recursive = TRUE)
 
 kegg_per_cluster <- list()
 
@@ -29,17 +38,19 @@ for (ct in names(degs_per_cluster)) {
   }
 
   # 2. Map gene symbols to Entrez IDs (required for enrichKEGG)
-  gene_entrez <- bitr(degs_combined, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Cf.eg.db)
+  gene_entrez <- bitr(degs_combined,
+                      fromType = "SYMBOL", toType = "ENTREZID",
+                      OrgDb = ORG_DB)
   if (nrow(gene_entrez) == 0) {
     cat("    No Entrez ID mapping\n")
     next
   }
 
   # 3. Run KEGG enrichment
-  kegg_res <- enrichKEGG(gene = gene_entrez$ENTREZID,
-                         organism = "cfa",
-                         pvalueCutoff = 0.05,
-                         qvalueCutoff = 0.05)
+  kegg_res <- enrichKEGG(gene         = gene_entrez$ENTREZID,
+                         organism     = ORGANISM_KEGG,
+                         pvalueCutoff = KEGG_PVALUE_CUTOFF,
+                         qvalueCutoff = KEGG_QVALUE_CUTOFF)
 
   if (is.null(kegg_res) || nrow(as.data.frame(kegg_res)) == 0) {
     cat("    No significant KEGG pathways enriched\n")
@@ -55,14 +66,13 @@ for (ct in names(degs_per_cluster)) {
   # Store using the cluster name only
   kegg_per_cluster[[ct]] <- kegg_df
 
-  # Save KEGG CSV (simplified filename)
-  csv_file_name <- paste0("kegg_csv/kegg_RichFactor_", ct, ".csv")
-  write.csv(kegg_df, file = csv_file_name, row.names = FALSE)
+  write.csv(kegg_df,
+            file = file.path(kegg_dir, paste0("kegg_RichFactor_", ct, ".csv")),
+            row.names = FALSE)
 
-  # Select top 20 by RichFactor, arrange, and set factor levels for plotting order
   kegg_plot_df <- kegg_df %>%
     arrange(desc(RichFactor)) %>%
-    slice_head(n = 30) %>%
+    slice_head(n = TOP_N_PATHWAYS) %>%
     mutate(Description = factor(Description, levels = rev(Description)))
 
   # 5. Create custom RichFactor DotPlot 📊
@@ -81,9 +91,10 @@ for (ct in names(degs_per_cluster)) {
 
   print(rich_plot)
 
-  # Save the plot (simplified filename)
-  plot_file_name <- paste0("kegg_dotplot/kegg_dotplot_RichFactor_", ct, ".png")
-  ggsave(filename = plot_file_name, plot = rich_plot, width = 8, height = 10, dpi = 300)
+  ggsave(
+    filename = file.path(kegg_plot_dir, paste0("kegg_RichFactor_", ct, ".png")),
+    plot = rich_plot, width = 8, height = 10, dpi = 300
+  )
 }
 
 # KEGG (using filtered DEGs)
@@ -107,17 +118,19 @@ for (ct in names(filtered_degs_per_cluster)) {
   }
 
   # 2. Map gene symbols to Entrez IDs
-  gene_entrez <- bitr(degs_combined, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Cf.eg.db)
+  gene_entrez <- bitr(degs_combined,
+                      fromType = "SYMBOL", toType = "ENTREZID",
+                      OrgDb = ORG_DB)
   if (nrow(gene_entrez) == 0) {
     cat("    No Entrez ID mapping\n")
     next
   }
 
   # 3. Run KEGG enrichment
-  kegg_res <- enrichKEGG(gene = gene_entrez$ENTREZID,
-                         organism = "cfa",
-                         pvalueCutoff = 0.05,
-                         qvalueCutoff = 0.05)
+  kegg_res <- enrichKEGG(gene         = gene_entrez$ENTREZID,
+                         organism     = ORGANISM_KEGG,
+                         pvalueCutoff = KEGG_PVALUE_CUTOFF,
+                         qvalueCutoff = KEGG_QVALUE_CUTOFF)
 
   if (is.null(kegg_res) || nrow(as.data.frame(kegg_res)) == 0) {
     cat("    No significant KEGG pathways enriched\n")
@@ -131,14 +144,14 @@ for (ct in names(filtered_degs_per_cluster)) {
   # Store results
   kegg_per_cluster_filtered[[ct]] <- kegg_df
 
-  # Save KEGG CSV (with "_filtered" in filename)
-  csv_file_name <- paste0("kegg_csv_filtered/kegg_RichFactor_", ct, "_filtered.csv")
-  write.csv(kegg_df, file = csv_file_name, row.names = FALSE)
+  write.csv(kegg_df,
+            file = file.path(kegg_filt_dir,
+                             paste0("kegg_RichFactor_", ct, "_filtered.csv")),
+            row.names = FALSE)
 
-  # Select top 30 by RichFactor
   kegg_plot_df <- kegg_df %>%
     arrange(desc(RichFactor)) %>%
-    slice_head(n = 30) %>%
+    slice_head(n = TOP_N_PATHWAYS) %>%
     mutate(Description = factor(Description, levels = rev(Description)))
 
   # 5. Custom RichFactor DotPlot 📊
@@ -157,7 +170,9 @@ for (ct in names(filtered_degs_per_cluster)) {
 
   print(rich_plot)
 
-  # Save the plot (with "_filtered" in filename)
-  plot_file_name <- paste0("kegg_dotplot_filtered/kegg_dotplot_RichFactor_", ct, "_filtered.png")
-  ggsave(filename = plot_file_name, plot = rich_plot, width = 8, height = 10, dpi = 300)
+  ggsave(
+    filename = file.path(kegg_filt_plot_dir,
+                         paste0("kegg_RichFactor_", ct, "_filtered.png")),
+    plot = rich_plot, width = 8, height = 10, dpi = 300
+  )
 }
