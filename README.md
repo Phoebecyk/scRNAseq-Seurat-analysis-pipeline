@@ -2,6 +2,8 @@
 
 A reproducible single-cell RNA-seq workflow for three canine neuroendocrine tumour types — cortisol-secreting adrenal cortical tumour (csACT), pheochromocytoma (PCC), and insulinoma — using R and Seurat v5. Human fetal adrenal samples (GEO: GSE137804) are used as a normal medullary reference for PCC in the absence of sufficient canine adrenal medullary cells.
 
+**Translational design:** Canine samples are aligned to the CanFam3.1 reference genome, then at the end of preprocessing all canine gene names are converted to their human ortholog symbols (Ensembl BioMart, 1:1 high-confidence orthologs only). From that point onward the entire pipeline operates in human gene space — enabling direct use of human reference databases for cell type annotation, KEGG pathway enrichment (`org.Hs.eg.db`), STRING PPI (human network), and CellChat (`CellChatDB.human`). The ortholog table is cached to `results/dog_human_orthologs.csv` after the first run.
+
 Switch between tumour types by changing one line in `scripts/config.R`; all scripts pick up the correct conditions, cell type labels, and output paths automatically.
 
 ---
@@ -76,7 +78,7 @@ Key parameters:
 | `COND1` / `COND2` | dataset-specific | Reference / tumour condition labels (e.g. `"Normal"` / `"PCC"`) |
 | `TUMOUR_CELLS` | dataset-specific | Cell types used for DEG and PPI focus analyses |
 | `CELL_TYPE_MAP` | dataset-specific | Named vector mapping cluster number → cell type label |
-| `ORGANISM_KEGG` | `"cfa"` | KEGG organism code (Canis familiaris) |
+| `ORGANISM_KEGG` | `"hsa"` | KEGG organism code (Homo sapiens) — genes are in human symbol space after ortholog conversion |
 | `MIN_FEATURES` | `500` / `200` | Minimum genes per cell (scRNAseq / snRNAseq) |
 | `MAX_PERCENT_MT` | `10` / `2` | Maximum mitochondrial % (scRNAseq / snRNAseq) |
 | `MAX_CELLS_PER_SAMPLE` | `2000` | Downsampling ceiling per sample |
@@ -108,7 +110,7 @@ source(here("scripts/06_DEG_analysis.R"))   # → degs_per_cluster.rds, filtered
 
 | Step | Script | Input | Output (all under `results/DATASET/` or `output_tables/DATASET/`) |
 | :--- | :--- | :--- | :--- |
-| 1 | `01_preprocessing.R` | Raw count files | `seurat_list` in memory |
+| 1 | `01_preprocessing.R` | Raw count files | `seurat_list` in memory; `results/dog_human_orthologs.csv` (cached on first run) |
 | 2 | `02_qc_filtering.R` | `seurat_list` | Filtered `seurat_list`; `qc_plots_combined.png` |
 | 3 | `03_integration.R` | `seurat_list` | `seurat_combined.rds` |
 | 4 | `04_annotation.R` | `seurat_combined.rds` | `seurat_obj_annotated.rds`; UMAP and dot plots |
@@ -143,6 +145,7 @@ All outputs land in dataset-specific subdirectories so results from different tu
 
 ```
 results/
+├── dog_human_orthologs.csv       # BioMart 1:1 ortholog table (cached after first run)
 └── {DATASET}/                    # e.g. results/PCC/
     ├── umap_annotated.png
     ├── umap_annotated_split_condition.png

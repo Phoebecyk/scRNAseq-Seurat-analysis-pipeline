@@ -14,8 +14,9 @@ DATASET     <- "PCC"       # "csACT" | "PCC" | "insulinoma"
 IS_SNRNASEQ <- FALSE       # TRUE for Parse Bioscience FFPE runs
 
 # ── Organism ──────────────────────────────────────────────────────────────────
-ORGANISM_KEGG <- "cfa"     # KEGG organism code (Canis familiaris)
-ORG_DB        <- "org.Cf.eg.db"
+ORGANISM_KEGG  <- "hsa"     # KEGG organism code (Homo sapiens)
+ORG_DB         <- "org.Hs.eg.db"
+STRING_SPECIES <- 9606L     # NCBI taxonomy ID (Homo sapiens)
 
 # ── Reproducibility ───────────────────────────────────────────────────────────
 SEED <- 123
@@ -92,6 +93,8 @@ DATASET_CONFIGS <- list(
     cond1 = "Normal",
     cond2 = "csACT",
 
+    human_samples = character(0),
+
     # condition assignment per sample name (used in script 01)
     sample_conditions = c(
       "NAD2016"        = "Normal",
@@ -128,7 +131,7 @@ DATASET_CONFIGS <- list(
                                         "RGS5", "PDGFRB", "CSPG4"),
       "Macrophages"                 = c("CD86", "PTPRC", "C1QC", "MSR1", "IL18"),
       "T_cells"                     = c("CD3E", "CD69", "ITK", "CD226"),
-      "Chromaffin_ref"              = c("ENSCAFG00000024864", "CHGB", "DBH", "SYP",
+      "Chromaffin_ref"              = c("CHGA", "CHGB", "DBH", "SYP",
                                         "PNMT", "TH")
     )
   ),
@@ -136,6 +139,8 @@ DATASET_CONFIGS <- list(
   PCC = list(
     cond1 = "Normal",
     cond2 = "PCC",
+
+    human_samples = c("f106", "f107"),
 
     sample_conditions = c(
       "f106"       = "Normal",
@@ -165,7 +170,7 @@ DATASET_CONFIGS <- list(
 
     marker_panel = list(
       "Neurosecretory_Chromaffin" = c("SYT1", "EPHA5", "DAB1", "RORB"),
-      "Chromaffin"                = c("TH", "DBH", "ENSCAFG00000024864", "PNMT", "SCG2"),
+      "Chromaffin"                = c("TH", "DBH", "CHGA", "PNMT", "SCG2"),
       "Fetal_progenitor"          = c("PHOX2B", "ASCL1", "ISL1", "SOX10"),
       "Fetal_sympathoblasts"      = c("MKI67", "TOP2A", "CNTN3", "CDH4"),
       "Steroidogenic"             = c("STAR", "CYP11A1", "CYP17A1", "MC2R"),
@@ -181,6 +186,8 @@ DATASET_CONFIGS <- list(
   insulinoma = list(
     cond1 = "Primary",
     cond2 = "Metastasis",
+
+    human_samples = character(0),
 
     # update with actual sample IDs from your data
     sample_conditions = c(
@@ -209,7 +216,7 @@ DATASET_CONFIGS <- list(
     infercnv_ref_groups = NULL,  # no matched normal for insulinoma
 
     marker_panel = list(
-      "INS_high"    = c("INS", "ENSCAFG00000024864", "CHGB", "PDX1"),
+      "INS_high"    = c("INS", "CHGA", "CHGB", "PDX1"),
       "INS_low"     = c("GPR39", "PRLR", "RIMS2", "ENOX1", "NPAS3", "GLIS1"),
       "T_cells"     = c("CD3E", "CD3D", "CD2", "CCL5"),
       "Macrophages" = c("TYROBP", "CD86", "AIF1", "C1QA", "C1QB"),
@@ -225,7 +232,7 @@ DATASET_CONFIGS <- list(
 # ── Shared display aliases ─────────────────────────────────────────────────────
 # Ensembl IDs without a human-readable symbol — used to relabel dot plot axes.
 # Add entries here if new unannotated genes appear in marker panels.
-ENSEMBL_ALIASES <- c("ENSCAFG00000024864" = "CHGA")
+ENSEMBL_ALIASES <- c()
 
 # ── Active configuration (referenced throughout all scripts) ───────────────────
 CFG           <- DATASET_CONFIGS[[DATASET]]

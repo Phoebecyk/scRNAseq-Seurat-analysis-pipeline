@@ -20,8 +20,6 @@ if (!exists("filtered_degs_tumour")) {
 }
 
 # ── STRING database connection ────────────────────────────────────────────────
-# species 9615 = Canis lupus familiaris
-STRING_SPECIES        <- 9615
 STRING_SCORE_THRESHOLD <- 700   # high-confidence interactions only
 
 string_db <- STRINGdb$new(

@@ -10,7 +10,7 @@ library(patchwork)
 library(ggplot2)
 library(cowplot)
 library(clusterProfiler)
-library(org.Cf.eg.db)  # Canis familiaris (dog) organism database
+library(biomaRt)
 library(enrichplot)
 library(dplyr)
 library(msigdbr)
@@ -142,3 +142,78 @@ seurat_list  <- lapply(sample_names, function(sample_name) {
   return(obj)
 })
 names(seurat_list) <- sample_names
+
+# ── Ortholog conversion: canine genes → human gene symbols ────────────────────
+# Applied only to canine samples (CFG$human_samples excluded — already in human
+# symbol space). Restricts to 1:1 high-confidence orthologs so all downstream
+# tools (CellChatDB.human, org.Hs.eg.db, cc.genes) work without modification.
+
+canine_samples <- names(seurat_list)[
+  !names(seurat_list) %in% CFG$human_samples
+]
+
+# Cache the BioMart result to avoid re-fetching on every run (~1-2 min).
+ortholog_cache <- here("results", "dog_human_orthologs.csv")
+dir.create(dirname(ortholog_cache), showWarnings = FALSE, recursive = TRUE)
+
+if (file.exists(ortholog_cache)) {
+  orthologs <- read.csv(ortholog_cache, stringsAsFactors = FALSE)
+} else {
+  dog_mart <- biomaRt::useMart("ensembl",
+                                dataset = "cfamiliaris_gene_ensembl")
+  orthologs <- biomaRt::getBM(
+    attributes = c(
+      "ensembl_gene_id",
+      "external_gene_name",
+      "hsapiens_homolog_associated_gene_name",
+      "hsapiens_homolog_orthology_type",
+      "hsapiens_homolog_orthology_confidence"
+    ),
+    mart = dog_mart
+  )
+  write.csv(orthologs, ortholog_cache, row.names = FALSE)
+}
+
+orthologs <- orthologs[
+  orthologs$hsapiens_homolog_orthology_type == "ortholog_one2one" &
+  orthologs$hsapiens_homolog_orthology_confidence == 1 &
+  nchar(orthologs$hsapiens_homolog_associated_gene_name) > 0,
+]
+
+# Primary lookup: gene symbol → human symbol
+symbol_map  <- setNames(
+  orthologs$hsapiens_homolog_associated_gene_name,
+  orthologs$external_gene_name
+)
+# Fallback lookup: Ensembl ID → human symbol
+# Needed for genes that CanFam3.1 GTF did not annotate with a symbol
+# (e.g. ENSCAFG00000024864 → CHGA). Cell Ranger uses the Ensembl ID as
+# the gene name when no symbol exists in the GTF.
+ensembl_map <- setNames(
+  orthologs$hsapiens_homolog_associated_gene_name,
+  orthologs$ensembl_gene_id
+)
+
+convert_canine_to_human <- function(obj) {
+  genes      <- rownames(obj)
+  human_name <- dplyr::case_when(
+    genes %in% names(symbol_map)  ~ symbol_map[genes],
+    genes %in% names(ensembl_map) ~ ensembl_map[genes],
+    TRUE                          ~ NA_character_
+  )
+  keep      <- !is.na(human_name)
+  obj       <- obj[keep, ]
+  new_names <- make.unique(human_name[keep])
+  counts    <- GetAssayData(obj, assay = "RNA", layer = "counts")
+  rownames(counts) <- new_names
+  CreateSeuratObject(counts = counts, meta.data = obj@meta.data)
+}
+
+seurat_list[canine_samples] <- lapply(
+  seurat_list[canine_samples], convert_canine_to_human
+)
+
+cat(sprintf(
+  "Ortholog conversion: %d genes retained in canine samples\n",
+  nrow(seurat_list[[canine_samples[1]]])
+))
